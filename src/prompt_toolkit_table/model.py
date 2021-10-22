@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, TypeVar, Union
 
 from prompt_toolkit.application import get_app
 from prompt_toolkit.key_binding import KeyBindings, KeyBindingsBase, merge_key_bindings
-from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
+from prompt_toolkit.layout import ScrollablePane
 from prompt_toolkit.layout.containers import (
     Container,
     HorizontalAlign,
@@ -20,23 +20,23 @@ from prompt_toolkit.layout.screen import Screen, WritePosition
 from prompt_toolkit.styles import Style
 from pydantic import BaseModel  # noqa: E0611
 
-# Table Key bindings
-
-table_bindings = KeyBindings()
-
-table_bindings.add("j")(focus_next)
-table_bindings.add("k")(focus_previous)
-
+from .key_bindings import table_bindings
 
 # Styles
 
-table_style = Style(
+TABLE_STYLE = Style(
     [
         ("row", "bg:#002b36 #657b83"),
+        ("focused", "bg:#657b83 #002b36"),
         ("row.alternate", "bg:#073642"),
-        ("row.focused", "#268bd2"),
+        ("header", "bg:#002b36 #6c71c4"),
+        ("header.separator", "#657b83"),
+        ("scrollbar.background", "bg:#002b36"),
+        ("scrollbar.button", "bg:#657b83"),
+        ("test", "bg:#dc322f"),
     ]
 )
+
 
 # Models
 
@@ -92,9 +92,9 @@ class Table(HSplit):
             key_bindings = KeyBindings()
         key_bindings = merge_key_bindings([table_bindings, key_bindings])
 
-        self.rows = []
+        self.rows: List[_Row] = []
         for row in self.data:
-            if style == "class:row":
+            if len(self.rows) % 2 == 0:
                 style = "class:row.alternate"
             else:
                 style = "class:row"
@@ -104,7 +104,10 @@ class Table(HSplit):
             children=[
                 self.table_header,
                 Window(height=1, char="─", style="class:header.separator"),
-                *self.rows,
+                ScrollablePane(
+                    content=HSplit(self.rows),
+                    display_arrows=False,
+                ),
             ],
             window_too_small=window_too_small,
             align=align,
@@ -135,7 +138,8 @@ class Table(HSplit):
             max_layout_dimensions(list(i)) for i in zip(*dimensions)
         ]
 
-        # Set the max dimension to the preferred
+        # Set the max dimension to the preferred if we don't want to use the whole
+        # screen
         if not self.fill_width:
             for dimension in table_width_dimensions:
                 dimension.max = dimension.preferred
@@ -186,7 +190,7 @@ class _Row(VSplit):
         focusable: bool = True,
         window_too_small: Optional[Container] = None,
         align: HorizontalAlign = HorizontalAlign.LEFT,
-        padding: AnyDimension = 2,
+        padding: AnyDimension = 3,
         padding_char: Optional[str] = " ",
         padding_style: str = "",
         width: AnyDimension = None,
@@ -217,6 +221,7 @@ class _Row(VSplit):
         self.columns: List[Window] = []
 
         for value in column_data:
+            # Only allow to focus the first cell of a row
             if focusable and len(self.columns) == 0:
                 focusable = True
             else:
@@ -225,7 +230,7 @@ class _Row(VSplit):
             self.columns.append(
                 Window(
                     FormattedTextControl(str(value), focusable=focusable),
-                    style=get_style,  # type: ignore
+                    style=get_style,
                     always_hide_cursor=True,
                     dont_extend_height=True,
                     wrap_lines=True,
@@ -237,7 +242,7 @@ class _Row(VSplit):
             align=align,
             padding=padding,
             padding_char=padding_char,
-            padding_style=str(style),
+            padding_style=get_style,  # type: ignore
             width=width,
             height=height,
             z_index=z_index,

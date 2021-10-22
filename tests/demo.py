@@ -8,10 +8,9 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.output.color_depth import ColorDepth
-from prompt_toolkit.styles import Style
 from pydantic import BaseModel, Field
 
-from prompt_toolkit_table import Table
+from prompt_toolkit_table import TABLE_STYLE, Table
 
 
 class User(BaseModel):
@@ -28,13 +27,13 @@ def create_user_data() -> List[User]:
 
     return [
         User(id_=faker.pyint(), name=faker.name(), bio=faker.sentence())
-        for _ in range(0, 10)
+        for _ in range(0, 20)
     ]
 
 
 data = create_user_data()
 
-table = Table(data, fill_width=True)
+table = Table(data, fill_width=False)
 
 # Key bindings
 
@@ -48,21 +47,11 @@ def exit_(event: KeyPressEvent) -> None:
     event.app.exit()
 
 
-style = Style(
-    [
-        ("row", "bg:#002b36 #657b83"),
-        ("focused", "#268bd2"),
-        ("row.alternate", "bg:#073642"),
-        ("header", "bg:#002b36 #6c71c4"),
-        ("header.separator", "#657b83"),
-    ]
-)
-
 app = Application(  # type: ignore
     layout=Layout(table),
     full_screen=True,
     key_bindings=kb,
-    style=style,
+    style=TABLE_STYLE,
     color_depth=ColorDepth.DEPTH_24_BIT,
 )
 
