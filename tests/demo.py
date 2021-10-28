@@ -10,7 +10,8 @@ from prompt_toolkit.layout.layout import Layout
 from prompt_toolkit.output.color_depth import ColorDepth
 from pydantic import BaseModel, Field
 
-from prompt_toolkit_table import TABLE_STYLE, Table
+from prompt_toolkit_table import TABLE_STYLE
+from prompt_toolkit_table.widgets import Table
 
 
 class User(BaseModel):
@@ -31,28 +32,32 @@ def create_user_data() -> List[User]:
     ]
 
 
-data = create_user_data()
+def main() -> None:
+    """Run the demo."""
+    data = create_user_data()
 
-table = Table(data, fill_width=False)
+    table = Table(data)
 
-# Key bindings
+    # Key bindings
 
-kb = KeyBindings()
+    kb = KeyBindings()
+
+    @kb.add("c-c", eager=True)
+    @kb.add("q", eager=True)
+    def exit_(event: KeyPressEvent) -> None:
+        """Exit the user interface."""
+        event.app.exit()
+
+    app = Application(  # type: ignore
+        layout=Layout(table),
+        full_screen=True,
+        key_bindings=kb,
+        style=TABLE_STYLE,
+        color_depth=ColorDepth.DEPTH_24_BIT,
+    )
+
+    app.run()
 
 
-@kb.add("c-c", eager=True)
-@kb.add("q", eager=True)
-def exit_(event: KeyPressEvent) -> None:
-    """Exit the user interface."""
-    event.app.exit()
-
-
-app = Application(  # type: ignore
-    layout=Layout(table),
-    full_screen=True,
-    key_bindings=kb,
-    style=TABLE_STYLE,
-    color_depth=ColorDepth.DEPTH_24_BIT,
-)
-
-app.run()
+if __name__ == "__main__":
+    main()

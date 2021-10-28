@@ -2,6 +2,8 @@
 
 from typing import List
 
-from .model import TABLE_STYLE, Table
+from .control import TableControl
+from .styles import TABLE_STYLE
+from .widgets import Table
 
-__all__: List[str] = ["Table", "TABLE_STYLE"]
+__all__: List[str] = ["Table", "TABLE_STYLE", "TableControl"]
