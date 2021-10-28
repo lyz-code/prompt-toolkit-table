@@ -46,7 +46,7 @@ class TableControl(FormattedTextControl):
         get_cursor_position: Optional[GetCursorPosition] = None,
     ) -> None:
         """Prepare the control to manage the content."""
-        if len(data) < 0:
+        if len(data) == 0:
             raise ValueError("Please introduce some data to print.")
 
         self.data = data
@@ -383,7 +383,7 @@ class TableControl(FormattedTextControl):
         self.header_text = self._pad_text([header], row_widths)
         return self._pad_text(self.rows, row_widths)
 
-    def create_content(self, width: int, height: Optional[int]) -> "UIContent":
+    def create_content(self, width: int, height: Optional[int] = None) -> "UIContent":
         """Transform the data into the UIContent object."""
         # Get fragments
         # ignore: Argument 1 to "append" of "list" has

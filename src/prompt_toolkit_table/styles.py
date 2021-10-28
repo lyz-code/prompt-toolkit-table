@@ -13,7 +13,5 @@ TABLE_STYLE = Style(
         ("header.separator", "#657b83"),
         ("scrollbar.background", "bg:#002b36"),
         ("scrollbar.button", "bg:#657b83"),
-        # ("right_margin", "bg:#dc322f"),
-        # ("test", "bg:#dc322f"),
     ]
 )

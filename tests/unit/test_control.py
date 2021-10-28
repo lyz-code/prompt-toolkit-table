@@ -12,6 +12,7 @@ from prompt_toolkit.key_binding import KeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPress, KeyProcessor
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import Layout, Window
+from prompt_toolkit.layout.controls import UIContent
 from prompt_toolkit.output import DummyOutput
 
 from prompt_toolkit_table import TableControl
@@ -222,6 +223,59 @@ class TestTableControl:
         for column in columns:
             for cell in column:
                 assert len(cell[1]) == len(column[0][1])
+
+    def test_create_content_returns_the_expected_uicontent(
+        self, pydantic_data: PydanticData
+    ) -> None:
+        """
+        Given: A well configured table
+        When: create_content is called
+        Then: The UIContent object is well built and configured meaning:
+            * the cursor is not shown
+        """
+        control = TableControl(pydantic_data)
+
+        result = control.create_content(width=300)
+
+        assert isinstance(result, UIContent)
+        assert not result.show_cursor
+
+    def test_raise_error_if_elements_len_different_header(
+        self, list_data: ListData
+    ) -> None:
+        """
+        Given: A wrong configured table, where the header is smaller than the elements
+        When: create_text is initialized
+        Then: a ValueError exception is raised
+        """
+        data, header = list_data
+        table = TableControl(data, header=header)
+        table.header.pop(0)
+
+        with pytest.raises(
+            ValueError, match="Row.*length is different from the header.*"
+        ):
+            table.create_text()
+
+    def test_raise_error_if_no_data_is_entered(self) -> None:
+        """
+        Given: Nothing
+        When: the component is initialized without data
+        Then: a ValueError exception is raised
+        """
+        with pytest.raises(ValueError, match="Please introduce some data to print."):
+            TableControl(data=[])
+
+    def test_raise_error_if_data_is_not_supported(self) -> None:
+        """
+        Given: A non supported data
+        When: the component is initialized
+        Then: a ValueError exception is raised
+        """
+        with pytest.raises(
+            ValueError, match="Data format not supported, please enter a list of .*"
+        ):
+            TableControl(data=[1])
 
 
 class TestWrapping:
