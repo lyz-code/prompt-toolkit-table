@@ -50,6 +50,7 @@ class TableControl(FormattedTextControl):
         self.padding = padding
         self.padding_char = padding_char
         self.padding_style = padding_style
+        self._focused_row = 0
 
         # Prepare the parent FormattedTextControl data.
         super().__init__(
@@ -106,17 +107,21 @@ class TableControl(FormattedTextControl):
         return dimensions
 
     def _create_rows(
-        self, row_data: TableData, style: str = ""
+        self, rows_data: TableData, style: str = ""
     ) -> List[StyleAndTextTuples]:
         """Create rows with style and spaces between elements."""
         rows: List[StyleAndTextTuples] = []
-        for row_data in row_data:
+        for row_data in rows_data:
             # Set base style of the rows
             if style is not None:
                 if len(rows) % 2 == 0:
                     style = "class:row.alternate"
                 else:
                     style = "class:row"
+
+            # Set the style on the focused element
+            if rows_data.index(row_data) == self._focused_row:
+                style += ",focused"
 
             # Create the row elements with style and adding spaces around each element
             if isinstance(row_data, list):

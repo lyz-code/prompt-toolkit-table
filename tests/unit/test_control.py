@@ -104,6 +104,7 @@ class TestTableControl:
             * The rows separate the cells with paddings
             * The rows have alternate styles
             * All cells of a column share the same length
+            * The first line is highlighted
         """
         control = TableControl(dict_data)
 
@@ -121,7 +122,9 @@ class TestTableControl:
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
-            if lines.index(line) % 2 != 0:
+            if lines.index(line) == 0:
+                assert line[0][0] == "class:row.alternate,focused"
+            elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:
                 assert line[0][0] == "class:row.alternate"
@@ -158,7 +161,9 @@ class TestTableControl:
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
-            if lines.index(line) % 2 != 0:
+            if lines.index(line) == 0:
+                assert line[0][0] == "class:row.alternate,focused"
+            elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:
                 assert line[0][0] == "class:row.alternate"
@@ -196,7 +201,9 @@ class TestTableControl:
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
-            if lines.index(line) % 2 != 0:
+            if lines.index(line) == 0:
+                assert line[0][0] == "class:row.alternate,focused"
+            elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:
                 assert line[0][0] == "class:row.alternate"
