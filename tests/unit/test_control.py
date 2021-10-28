@@ -353,15 +353,18 @@ def set_dummy_app(data: PydanticData) -> Any:
     return set_app(app)
 
 
-def get_app_and_processor() -> Tuple[Application[Any], KeyProcessor]:
-    """Return the active application and it's key processor."""
+def get_content_and_processor() -> Tuple[TableControl, KeyProcessor]:
+    """Return the content to test and the key processor."""
     app = get_app()
     key_bindings = app.layout.container.get_key_bindings()
 
     if key_bindings is None:
         key_bindings = KeyBindings()
     processor = KeyProcessor(key_bindings)
-    return app, processor
+
+    # ignore: "Container" has no attribute "content" -> but it does have it.
+    content = app.layout.container.content  # type: ignore
+    return content, processor
 
 
 class TestMovement:
@@ -375,13 +378,12 @@ class TestMovement:
         Then: the focus is moved to the next line
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
+            content, processor = get_content_and_processor()
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 1  # type: ignore
+            assert content._focused_row == 1
 
     @pytest.mark.parametrize("key", ["k", Keys.Up])
     def test_moves_to_the_previous_row(
@@ -393,14 +395,13 @@ class TestMovement:
         Then: the focus is moved to the first line
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
-            app.layout.container.content._focused_row = 1  # type: ignore
+            content, processor = get_content_and_processor()
+            content._focused_row = 1
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 0  # type: ignore
+            assert content._focused_row == 0
 
     @pytest.mark.parametrize("key", [Keys.ControlD, Keys.PageDown])
     def test_moves_a_bunch_of_rows_down(
@@ -412,13 +413,12 @@ class TestMovement:
         Then: the focus is moved a bunch of lines down
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
+            content, processor = get_content_and_processor()
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 9  # type: ignore
+            assert content._focused_row == 9
 
     @pytest.mark.parametrize("key", [Keys.ControlU, Keys.PageUp])
     def test_moves_a_bunch_of_rows_up(
@@ -430,14 +430,13 @@ class TestMovement:
         Then: the focus is moved a bunch of lines up
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
-            app.layout.container.content._focused_row = 11  # type: ignore
+            content, processor = get_content_and_processor()
+            content._focused_row = 11
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 1  # type: ignore
+            assert content._focused_row == 1
 
     @pytest.mark.parametrize("key", ["k", Keys.Up, Keys.ControlU, Keys.PageUp])
     def test_moves_up_never_goes_over_the_first_item(
@@ -449,13 +448,12 @@ class TestMovement:
         Then: the focus stays in the first row
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
+            content, processor = get_content_and_processor()
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 0  # type: ignore
+            assert content._focused_row == 0
 
     @pytest.mark.parametrize("key", ["j", Keys.Down, Keys.ControlD, Keys.PageDown])
     def test_moves_down_never_goes_below_the_last_item(
@@ -467,15 +465,14 @@ class TestMovement:
         Then: the focus stays in the last row
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
-            last_row = len(app.layout.container.content.data) - 1  # type: ignore
-            app.layout.container.content._focused_row = last_row  # type: ignore
+            content, processor = get_content_and_processor()
+            last_row = len(content.data) - 1
+            content._focused_row = last_row
 
             processor.feed(KeyPress(key, key))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == last_row  # type: ignore
+            assert content._focused_row == last_row
 
     def test_moves_to_the_top(self, pydantic_data: PydanticData) -> None:
         """
@@ -484,16 +481,15 @@ class TestMovement:
         Then: the focus goes to the first row
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
-            last_row = len(app.layout.container.content.data) - 1  # type: ignore
-            app.layout.container.content._focused_row = last_row  # type: ignore
+            content, processor = get_content_and_processor()
+            last_row = len(content.data) - 1
+            content._focused_row = last_row
             processor.feed(KeyPress("g", "g"))
 
             processor.feed(KeyPress("g", "g"))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == 0  # type: ignore
+            assert content._focused_row == 0
 
     def test_moves_to_the_bottom(self, pydantic_data: PydanticData) -> None:
         """
@@ -502,11 +498,97 @@ class TestMovement:
         Then: the focus goes to the last row
         """
         with set_dummy_app(pydantic_data):
-            app, processor = get_app_and_processor()
-            last_row = len(app.layout.container.content.data) - 1  # type: ignore
+            content, processor = get_content_and_processor()
+            last_row = len(content.data) - 1
 
             processor.feed(KeyPress("G"))  # act
 
             processor.process_keys()
-            # ignore: "Container" has no attribute "content" -> but it does have it
-            assert app.layout.container.content._focused_row == last_row  # type: ignore
+            assert content._focused_row == last_row
+
+    def test_find_finds_rows_below_the_current_row(
+        self, pydantic_data: PydanticData
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the second row, and the
+            first letter of the first column of the fourth row is x
+        When: f and then x is pressed
+        Then: the focus goes to the fourth row
+        """
+        with set_dummy_app(pydantic_data):
+            content, processor = get_content_and_processor()
+            content._focused_row = 1
+            content.data[3].id_ = "xwebhe"
+            content.create_text()
+            processor.feed(KeyPress("f"))
+
+            processor.feed(KeyPress("x"))  # act
+
+            processor.process_keys()
+            assert content._focused_row == 3
+
+    def test_find_finds_rows_above_the_current_row(
+        self, pydantic_data: PydanticData
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the second row, and the
+            first letter of the first column of the first row is x, and none of
+            the rows below the first one start with x
+        When: f and then x is pressed
+        Then: the focus goes to the first row
+        """
+        with set_dummy_app(pydantic_data):
+            content, processor = get_content_and_processor()
+            content._focused_row = 1
+            content.data[0].id_ = "xwebhe"
+            content.create_text()
+            processor.feed(KeyPress("f"))
+
+            processor.feed(KeyPress("x"))  # act
+
+            processor.process_keys()
+            assert content._focused_row == 0
+
+    def test_backward_find_finds_rows_above_the_current_row(
+        self, pydantic_data: PydanticData
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the fourth row, and the
+            first letter of the first column of the second and fifth rows is x
+        When: F and then x is pressed
+        Then: the focus goes to the second row
+        """
+        with set_dummy_app(pydantic_data):
+            content, processor = get_content_and_processor()
+            content._focused_row = 3
+            content.data[1].id_ = "xwebhe"
+            content.data[4].id_ = "xebhwe"
+            content.create_text()
+            processor.feed(KeyPress("F"))
+
+            processor.feed(KeyPress("x"))  # act
+
+            processor.process_keys()
+            assert content._focused_row == 1
+
+    def test_backward_find_finds_rows_below_the_current_row(
+        self, pydantic_data: PydanticData
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the second row, and the
+            first letter of the first column of the fourth row is x, and none of
+            the rows above the second one start with x
+        When: F and then x is pressed
+        Then: the focus goes to the fourth row
+        """
+        with set_dummy_app(pydantic_data):
+            content, processor = get_content_and_processor()
+            content._focused_row = 1
+            content.data[3].id_ = "xwebhe"
+            content.create_text()
+            processor.feed(KeyPress("F"))
+
+            processor.feed(KeyPress("x"))  # act
+
+            processor.process_keys()
+            assert content._focused_row == 3

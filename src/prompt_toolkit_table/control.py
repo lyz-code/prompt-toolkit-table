@@ -3,8 +3,11 @@
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from prompt_toolkit.filters import FilterOrBool
+from prompt_toolkit.formatted_text import to_formatted_text
+from prompt_toolkit.formatted_text.utils import fragment_list_to_text
 from prompt_toolkit.key_binding import KeyBindings, KeyBindingsBase, merge_key_bindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
+from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import FormattedTextControl
 from prompt_toolkit.layout.dimension import (
     Dimension,
@@ -94,6 +97,36 @@ class TableControl(FormattedTextControl):
         def _bottom(event: KeyPressEvent) -> None:
             """Move the focus to the bottom."""
             self._focused_row = len(self.data) - 1
+
+        @control_bindings.add("f", Keys.Any)
+        def _find_rows(event: KeyPressEvent) -> None:
+            """Find rows whose first column cell starts with the pressed key.
+
+            We first check values after the selected value, then all values.
+            """
+            values = [row[0] for row in self.rows]
+            # E203: white space introduced by black
+            for value in values[self._focused_row + 1 :] + values:  # noqa: E203
+                text = fragment_list_to_text(to_formatted_text(value[1])).lower()
+
+                if text.startswith(event.data.lower()):
+                    self._focused_row = values.index(value)
+                    return
+
+        @control_bindings.add("F", Keys.Any)
+        def _backward_find_rows(event: KeyPressEvent) -> None:
+            """Find backwards rows whose first column cell starts with the pressed key.
+
+            We first check values before the selected value, then all values.
+            """
+            values = [row[0] for row in self.rows]
+            # E203: white space introduced by black
+            for value in values[: self._focused_row - 1][::-1] + values:  # noqa: E203
+                text = fragment_list_to_text(to_formatted_text(value[1])).lower()
+
+                if text.startswith(event.data.lower()):
+                    self._focused_row = values.index(value)
+                    return
 
         key_bindings = merge_key_bindings([key_bindings, control_bindings])
 
@@ -340,15 +373,15 @@ class TableControl(FormattedTextControl):
             each row is formed by a list of (style, text) tuples.
         """
         header = self._create_rows([self.header])[0]
-        rows = self._create_rows(self.data)
-        all_rows = [header] + rows
+        self.rows = self._create_rows(self.data)
+        all_rows = [header] + self.rows
 
         # Adjust column widths to fit the max_available_width
         row_widths = self._divide_widths(all_rows, max_available_width)
 
         # Create the text
         self.header_text = self._pad_text([header], row_widths)
-        return self._pad_text(rows, row_widths)
+        return self._pad_text(self.rows, row_widths)
 
     def create_content(self, width: int, height: Optional[int]) -> "UIContent":
         """Transform the data into the UIContent object."""
