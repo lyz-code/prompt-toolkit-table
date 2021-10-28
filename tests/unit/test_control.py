@@ -1,10 +1,18 @@
 """Test the implementation of the TableControl component."""
 
 import re
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any, List, Tuple
 
 import pytest
 from faker import Faker
+from prompt_toolkit.application import Application, get_app
+from prompt_toolkit.application.current import set_app
+from prompt_toolkit.input.defaults import create_pipe_input
+from prompt_toolkit.key_binding import KeyBindings
+from prompt_toolkit.key_binding.key_processor import KeyPress, KeyProcessor
+from prompt_toolkit.keys import Keys
+from prompt_toolkit.layout import Layout, Window
+from prompt_toolkit.output import DummyOutput
 
 from prompt_toolkit_table import TableControl
 
@@ -238,7 +246,7 @@ class TestWrapping:
             for cell in column:
                 assert len(cell[1]) == len(column[0][1])
 
-    def test_wrapping_with_paragraph_that_matches_the_wrap(self, faker: Faker) -> None:
+    def test_wrapping_with_paragraph_that_matches_the_wrap(self) -> None:
         r"""
         Given: A row with a text with \n in a column in the middle, and the \n falls
             where the wrapping would split the lines
@@ -259,9 +267,7 @@ class TestWrapping:
         assert result[2][1] == " hello "
         assert result[9][1] == " world "
 
-    def test_wrapping_with_paragraph_that_doesnt_match_the_wrap(
-        self, faker: Faker
-    ) -> None:
+    def test_wrapping_with_paragraph_that_doesnt_match_the_wrap(self) -> None:
         r"""
         Given: A row with a text with \n in a column in the middle, and the \n doesn't
             falls where the wrapping would split the lines.
@@ -298,7 +304,7 @@ class TestWrapping:
         assert "\n" not in result[9][1]
         assert "\n" not in result[16][1]
 
-    def test_wrapping_with_two_newlines(self, faker: Faker) -> None:
+    def test_wrapping_with_two_newlines(self) -> None:
         r"""
         Given: A row with a text with two consecutive \n in a column in the middle
         When: create_text is called with a width that doesn't need wrapping
@@ -316,9 +322,7 @@ class TestWrapping:
         assert result[9][1] == "                 "
         assert result[16][1] == " beautiful world "
 
-    def test_wrapping_returns_error_if_there_is_not_enough_space(
-        self, faker: Faker
-    ) -> None:
+    def test_wrapping_returns_error_if_there_is_not_enough_space(self) -> None:
         r"""
         Given: A data with a minimum size that is greater than the available width
         When: create_text is called
@@ -332,3 +336,177 @@ class TestWrapping:
             ValueError, match="There is not enough space to print all the columns"
         ):
             control.create_text(max_available_width=10)
+
+
+def set_dummy_app(data: PydanticData) -> Any:
+    """Return a context manager that starts the dummy application.
+
+    This is important, because we need an `Application` with `is_done=False`
+    flag, otherwise no keys will be processed.
+    """
+    app: Application[Any] = Application(
+        layout=Layout(Window(TableControl(data))),
+        output=DummyOutput(),
+        input=create_pipe_input(),
+    )
+
+    return set_app(app)
+
+
+def get_app_and_processor() -> Tuple[Application[Any], KeyProcessor]:
+    """Return the active application and it's key processor."""
+    app = get_app()
+    key_bindings = app.layout.container.get_key_bindings()
+
+    if key_bindings is None:
+        key_bindings = KeyBindings()
+    processor = KeyProcessor(key_bindings)
+    return app, processor
+
+
+class TestMovement:
+    """Test the movement inside the TableControl."""
+
+    @pytest.mark.parametrize("key", ["j", Keys.Down])
+    def test_moves_to_the_next_row(self, pydantic_data: PydanticData, key: str) -> None:
+        """
+        Given: A well configured table
+        When: j or down is press
+        Then: the focus is moved to the next line
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 1  # type: ignore
+
+    @pytest.mark.parametrize("key", ["k", Keys.Up])
+    def test_moves_to_the_previous_row(
+        self, pydantic_data: PydanticData, key: str
+    ) -> None:
+        """
+        Given: A well configured table, and the highlight in the second row
+        When: k or up is press
+        Then: the focus is moved to the first line
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+            app.layout.container.content._focused_row = 1  # type: ignore
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 0  # type: ignore
+
+    @pytest.mark.parametrize("key", [Keys.ControlD, Keys.PageDown])
+    def test_moves_a_bunch_of_rows_down(
+        self, pydantic_data: PydanticData, key: str
+    ) -> None:
+        """
+        Given: A well configured table
+        When: c-d or page down is press
+        Then: the focus is moved a bunch of lines down
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 9  # type: ignore
+
+    @pytest.mark.parametrize("key", [Keys.ControlU, Keys.PageUp])
+    def test_moves_a_bunch_of_rows_up(
+        self, pydantic_data: PydanticData, key: str
+    ) -> None:
+        """
+        Given: A well configured table
+        When: c-u or page up is press
+        Then: the focus is moved a bunch of lines up
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+            app.layout.container.content._focused_row = 11  # type: ignore
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 1  # type: ignore
+
+    @pytest.mark.parametrize("key", ["k", Keys.Up, Keys.ControlU, Keys.PageUp])
+    def test_moves_up_never_goes_over_the_first_item(
+        self, pydantic_data: PydanticData, key: str
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the first row
+        When: any key that moves the focus up
+        Then: the focus stays in the first row
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 0  # type: ignore
+
+    @pytest.mark.parametrize("key", ["j", Keys.Down, Keys.ControlD, Keys.PageDown])
+    def test_moves_down_never_goes_below_the_last_item(
+        self, pydantic_data: PydanticData, key: str
+    ) -> None:
+        """
+        Given: A well configured table and the focus in the last row
+        When: any key that moves the focus down
+        Then: the focus stays in the last row
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+            last_row = len(app.layout.container.content.data) - 1  # type: ignore
+            app.layout.container.content._focused_row = last_row  # type: ignore
+
+            processor.feed(KeyPress(key, key))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == last_row  # type: ignore
+
+    def test_moves_to_the_top(self, pydantic_data: PydanticData) -> None:
+        """
+        Given: A well configured table and the focus in the last row
+        When: gg is pressed
+        Then: the focus goes to the first row
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+            last_row = len(app.layout.container.content.data) - 1  # type: ignore
+            app.layout.container.content._focused_row = last_row  # type: ignore
+            processor.feed(KeyPress("g", "g"))
+
+            processor.feed(KeyPress("g", "g"))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == 0  # type: ignore
+
+    def test_moves_to_the_bottom(self, pydantic_data: PydanticData) -> None:
+        """
+        Given: A well configured table and the focus in the first row
+        When: G is pressed
+        Then: the focus goes to the last row
+        """
+        with set_dummy_app(pydantic_data):
+            app, processor = get_app_and_processor()
+            last_row = len(app.layout.container.content.data) - 1  # type: ignore
+
+            processor.feed(KeyPress("G"))  # act
+
+            processor.process_keys()
+            # ignore: "Container" has no attribute "content" -> but it does have it
+            assert app.layout.container.content._focused_row == last_row  # type: ignore

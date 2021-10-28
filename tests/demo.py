@@ -27,8 +27,8 @@ def create_user_data() -> List[User]:
     faker = Faker()
 
     return [
-        User(id_=faker.pyint(), name="\n".join(faker.paragraphs()), bio=faker.name())
-        # User(id_=faker.pyint(), name=faker.paragraph(), bio=faker.name())
+        # User(id_=faker.pyint(), name="\n".join(faker.paragraphs()), bio=faker.name())
+        User(id_=faker.pyint(), name=faker.paragraph(), bio=faker.name())
         for _ in range(0, 20)
     ]
 

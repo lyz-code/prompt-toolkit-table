@@ -61,31 +61,39 @@ class TableControl(FormattedTextControl):
         @control_bindings.add("k")
         @control_bindings.add("up")
         def _up(event: KeyPressEvent) -> None:
+            """Move the focus one row up."""
             self._focused_row = max(0, self._focused_row - 1)
 
-        @control_bindings.add("j")
         @control_bindings.add("down")
+        @control_bindings.add("j")
         def _down(event: KeyPressEvent) -> None:
+            """Move the focus one row down."""
             self._focused_row = min(len(self.data) - 1, self._focused_row + 1)
 
         @control_bindings.add("c-u")
         @control_bindings.add("pageup")
         def _pageup(event: KeyPressEvent) -> None:
-            window = event.app.layout.current_window
-            if window.render_info:
-                self._focused_row = max(
-                    0, self._focused_row - len(window.render_info.displayed_lines)
-                )
+            """Move the focus ten rows up."""
+            self._focused_row = max(0, self._focused_row - 10)
 
         @control_bindings.add("c-d")
         @control_bindings.add("pagedown")
         def _pagedown(event: KeyPressEvent) -> None:
-            window = event.app.layout.current_window
-            if window.render_info:
-                self._focused_row = min(
-                    len(self.data) - 1,
-                    self._focused_row + len(window.render_info.displayed_lines),
-                )
+            """Move the focus ten rows down."""
+            self._focused_row = min(
+                len(self.data) - 1,
+                self._focused_row + 10,
+            )
+
+        @control_bindings.add("g", "g")
+        def _top(event: KeyPressEvent) -> None:
+            """Move the focus to the top."""
+            self._focused_row = 0
+
+        @control_bindings.add("G")
+        def _bottom(event: KeyPressEvent) -> None:
+            """Move the focus to the bottom."""
+            self._focused_row = len(self.data) - 1
 
         key_bindings = merge_key_bindings([key_bindings, control_bindings])
 
