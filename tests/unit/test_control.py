@@ -104,7 +104,7 @@ class TestTableControl:
             * The rows separate the cells with paddings
             * The rows have alternate styles
             * All cells of a column share the same length
-            * The first line is highlighted
+            * The first line is highlighted, and the cursor focus is set
         """
         control = TableControl(dict_data)
 
@@ -123,7 +123,7 @@ class TestTableControl:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
-                assert line[0][0] == "class:row.alternate,focused"
+                assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
             elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:
@@ -143,6 +143,7 @@ class TestTableControl:
             * The rows separate the cells with paddings
             * The rows have alternate styles
             * All cells of a column share the same length
+            * The first line is highlighted, and the cursor focus is set
         """
         data, header = list_data
         control = TableControl(data=data, header=header)
@@ -162,7 +163,7 @@ class TestTableControl:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
-                assert line[0][0] == "class:row.alternate,focused"
+                assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
             elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:
@@ -184,6 +185,7 @@ class TestTableControl:
             * The rows separate the cells with paddings
             * The rows have alternate styles
             * All cells of a column share the same length
+            * The first line is highlighted, and the cursor focus is set
         """
         control = TableControl(pydantic_data)
 
@@ -202,7 +204,7 @@ class TestTableControl:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
-                assert line[0][0] == "class:row.alternate,focused"
+                assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
             elif lines.index(line) % 2 != 0:
                 assert line[0][0] == "class:row"
             else:

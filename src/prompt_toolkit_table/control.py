@@ -3,6 +3,8 @@
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from prompt_toolkit.filters import FilterOrBool
+from prompt_toolkit.key_binding import KeyBindings, KeyBindingsBase, merge_key_bindings
+from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout import FormattedTextControl
 from prompt_toolkit.layout.dimension import (
     Dimension,
@@ -14,7 +16,6 @@ from pydantic import BaseModel  # noqa: E0611
 
 if TYPE_CHECKING:
     from prompt_toolkit.data_structures import Point
-    from prompt_toolkit.key_binding.key_bindings import KeyBindingsBase
     from prompt_toolkit.layout import UIContent
 
 TableData = List[Any]
@@ -36,7 +37,7 @@ class TableControl(FormattedTextControl):
         padding_style: str = "padding",
         style: str = "",
         focusable: FilterOrBool = True,
-        key_bindings: Optional["KeyBindingsBase"] = None,
+        key_bindings: Optional[KeyBindingsBase] = None,
         show_cursor: bool = True,
         modal: bool = False,
         get_cursor_position: Optional[GetCursorPosition] = None,
@@ -52,13 +53,49 @@ class TableControl(FormattedTextControl):
         self.padding_style = padding_style
         self._focused_row = 0
 
+        # Key bindings.
+        if key_bindings is None:
+            key_bindings = KeyBindings()
+        control_bindings = KeyBindings()
+
+        @control_bindings.add("k")
+        @control_bindings.add("up")
+        def _up(event: KeyPressEvent) -> None:
+            self._focused_row = max(0, self._focused_row - 1)
+
+        @control_bindings.add("j")
+        @control_bindings.add("down")
+        def _down(event: KeyPressEvent) -> None:
+            self._focused_row = min(len(self.data) - 1, self._focused_row + 1)
+
+        @control_bindings.add("c-u")
+        @control_bindings.add("pageup")
+        def _pageup(event: KeyPressEvent) -> None:
+            window = event.app.layout.current_window
+            if window.render_info:
+                self._focused_row = max(
+                    0, self._focused_row - len(window.render_info.displayed_lines)
+                )
+
+        @control_bindings.add("c-d")
+        @control_bindings.add("pagedown")
+        def _pagedown(event: KeyPressEvent) -> None:
+            window = event.app.layout.current_window
+            if window.render_info:
+                self._focused_row = min(
+                    len(self.data) - 1,
+                    self._focused_row + len(window.render_info.displayed_lines),
+                )
+
+        key_bindings = merge_key_bindings([key_bindings, control_bindings])
+
         # Prepare the parent FormattedTextControl data.
         super().__init__(
             text=self.create_text,
             style=style,
             focusable=focusable,
             key_bindings=key_bindings,
-            show_cursor=show_cursor,
+            show_cursor=False,
             modal=modal,
             get_cursor_position=get_cursor_position,
         )
@@ -121,8 +158,7 @@ class TableControl(FormattedTextControl):
 
             # Set the style on the focused element
             if rows_data.index(row_data) == self._focused_row:
-                style += ",focused"
-
+                style += ",focused,[SetCursorPosition]"
             # Create the row elements with style and adding spaces around each element
             if isinstance(row_data, list):
                 elements = [(style, str(element)) for element in row_data]
