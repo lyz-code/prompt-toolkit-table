@@ -3,7 +3,6 @@
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from prompt_toolkit.filters import FilterOrBool
-from prompt_toolkit.formatted_text.utils import fragment_list_width
 from prompt_toolkit.layout import FormattedTextControl
 from prompt_toolkit.layout.dimension import (
     Dimension,
@@ -93,13 +92,15 @@ class TableControl(FormattedTextControl):
                 dimension = Dimension(
                     min=self.padding, max=self.padding, preferred=self.padding, weight=0
                 )
+            elif "right_margin" in column[0]:
+                dimension = Dimension(min=1, preferred=1, weight=0)
             else:
-                # By default to_dimension sets min == max == preferred
                 # We need to add 2 characters for each column for the space before
                 # and after the text
-                dimension = Dimension(
-                    min=3, preferred=fragment_list_width([column]) + 2
+                max_sentence_size = max(
+                    [len(sentence) for sentence in column[1].splitlines()]
                 )
+                dimension = Dimension(min=3, preferred=max_sentence_size + 2)
 
             dimensions.append(dimension)
         return dimensions
@@ -198,7 +199,7 @@ class TableControl(FormattedTextControl):
             index = next(child_generator)
 
         # Set the right margin to use all the available space.
-        sizes[-1] = width - sum(sizes[:-1])
+        sizes[-1] = max(sizes[-1], width - sum(sizes[:-1]))
 
         return sizes
 
@@ -217,14 +218,32 @@ class TableControl(FormattedTextControl):
             if "padding" in style:
                 columns.append([row[column_index]])
                 continue
+            elif "right_margin" in style:
+                columns.append([(style, " " * column_widths[column_index])])
+                continue
             width = column_widths[column_index]
             text = row[column_index][1]
             text_index = 0
             column_lines = []
+            min_width = max(text_index + width - 2, 1)
             while text_index <= len(text) - 1:
-                line_text = f" {text[text_index:text_index + width]} "
-                column_lines.append((style, line_text.ljust(width)))
-                text_index += width
+                new_index = text_index + min_width
+                selected_text = text[text_index:new_index]
+                # Deal with the new lines inside the cells
+                if "\n" in selected_text:
+                    break_index = selected_text.index("\n")
+                    if break_index == 0:
+                        # Deal with double \n\n
+                        if selected_text[1] == "\n":
+                            column_lines.append((style, " ".ljust(width)))
+                            text_index += 1
+                        text_index += 1
+                        continue
+                    else:
+                        selected_text = selected_text[:break_index]
+                        new_index = text_index + break_index
+                column_lines.append((style, f" {selected_text.strip()} ".ljust(width)))
+                text_index = new_index
             columns.append(column_lines)
 
         # Make sure that all columns have the same number of lines

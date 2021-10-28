@@ -4,6 +4,7 @@ import re
 from typing import TYPE_CHECKING, List
 
 import pytest
+from faker import Faker
 
 from prompt_toolkit_table import TableControl
 
@@ -204,3 +205,121 @@ class TestTableControl:
         for column in columns:
             for cell in column:
                 assert len(cell[1]) == len(column[0][1])
+
+
+class TestWrapping:
+    """Test the wrapping of the table control."""
+
+    def test_wrapping_long_column_in_the_middle(self, faker: Faker) -> None:
+        """
+        Given: A row with a long column in the middle
+        When: create_text is called with a width that needs wrapping
+        Then: The text is well wrapped, that means that all the cells of a column have
+            the same size.
+        """
+        data = [["cell", faker.sentence(), "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        result = control.create_text(max_available_width=30)
+
+        lines = get_lines(result)
+        columns = get_columns(lines)
+        for column in columns:
+            for cell in column:
+                assert len(cell[1]) == len(column[0][1])
+
+    def test_wrapping_with_paragraph_that_matches_the_wrap(self, faker: Faker) -> None:
+        r"""
+        Given: A row with a text with \n in a column in the middle, and the \n falls
+            where the wrapping would split the lines
+        When: create_text is called with a width that doesn't need wrapping
+        Then: The text is well formatted, that means that:
+            * The content should only have two lines.
+            * The text should not contain the \n, instead, the wrapping should be done
+                around that \n
+        """
+        data = [["cell", "hello\nworld", "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        result = control.create_text(max_available_width=40)
+
+        lines = get_lines(result)
+        assert len(lines) == 2
+        assert result[2][1] == " hello "
+        assert result[9][1] == " world "
+
+    def test_wrapping_with_paragraph_that_doesnt_match_the_wrap(
+        self, faker: Faker
+    ) -> None:
+        r"""
+        Given: A row with a text with \n in a column in the middle, and the \n doesn't
+            falls where the wrapping would split the lines.
+        When: create_text is called with a width that doesn't need wrapping
+        Then: The text is well formatted, that means that:
+            * The content should only have two lines.
+            * The text should not contain the \n, instead, the wrapping should be done
+                around that \n
+        """
+        data = [["cell", "hello\nbeautiful world", "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        result = control.create_text(max_available_width=60)
+
+        lines = get_lines(result)
+        assert len(lines) == 2
+        assert result[2][1] == " hello           "
+        assert result[9][1] == " beautiful world "
+
+    def test_wrapping_with_two_short_paragraphs(self, faker: Faker) -> None:
+        r"""
+        Given: A row with a text with two \n in a column in the middle
+        When: create_text is called with a width that doesn't need wrapping
+        Then: There are no \n in the text of the cells.
+        """
+        data = [["cell", "\n".join(faker.paragraphs()), "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        result = control.create_text(max_available_width=60000)
+
+        assert "\n" not in result[2][1]
+        assert "\n" not in result[9][1]
+        assert "\n" not in result[16][1]
+
+    def test_wrapping_with_two_newlines(self, faker: Faker) -> None:
+        r"""
+        Given: A row with a text with two consecutive \n in a column in the middle
+        When: create_text is called with a width that doesn't need wrapping
+        Then: There are no \n in the text of the cells, but an empty line is created
+        """
+        data = [["cell", "hello\n\nbeautiful world", "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        result = control.create_text(max_available_width=60000)
+
+        lines = get_lines(result)
+        assert len(lines) == 3
+        assert result[2][1] == " hello           "
+        assert result[9][1] == "                 "
+        assert result[16][1] == " beautiful world "
+
+    def test_wrapping_returns_error_if_there_is_not_enough_space(
+        self, faker: Faker
+    ) -> None:
+        r"""
+        Given: A data with a minimum size that is greater than the available width
+        When: create_text is called
+        Then: A ValueError is returned
+        """
+        data = [["cell", "hello\n\nbeautiful world", "cell"]]
+        header = ["head", "head", "head"]
+        control = TableControl(data=data, header=header)
+
+        with pytest.raises(
+            ValueError, match="There is not enough space to print all the columns"
+        ):
+            control.create_text(max_available_width=10)
