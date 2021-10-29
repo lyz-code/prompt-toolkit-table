@@ -55,6 +55,7 @@ class TableControl(FormattedTextControl):
         self.padding_char = padding_char
         self.padding_style = padding_style
         self._focused_row = 0
+        self.separator_text = []
 
         # Key bindings.
         if key_bindings is None:
@@ -191,14 +192,14 @@ class TableControl(FormattedTextControl):
         rows: List[StyleAndTextTuples] = []
         for row_data in rows_data:
             # Set base style of the rows
-            if style is not None:
+            if "header" not in style:
                 if len(rows) % 2 == 0:
                     style = "class:row.alternate"
                 else:
                     style = "class:row"
 
             # Set the style on the focused element
-            if rows_data.index(row_data) == self._focused_row:
+            if rows_data.index(row_data) == self._focused_row and "header" not in style:
                 style += ",focused,[SetCursorPosition]"
             # Create the row elements with style and adding spaces around each element
             if isinstance(row_data, list):
@@ -362,6 +363,31 @@ class TableControl(FormattedTextControl):
             padded_text += self._wrap_row(rows[row_index], row_widths)
         return padded_text
 
+    def _create_header_text(
+        self, header: StyleAndTextTuples, row_widths: List[int]
+    ) -> StyleAndTextTuples:
+        """Create the header text from the header."""
+        header_text = self._pad_text([header], row_widths)
+        # Remove the last \n
+        header_text.pop(-1)
+
+        # Extend the style over the scrollbar (that we don't have in the header)
+        # Otherwise you get a black pixel
+        last = header_text[-1]
+        header_text[-1] = (last[0], last[1] + " ")
+
+        return header_text
+
+    def _create_separator(self) -> StyleAndTextTuples:
+        """Create the separator text from the header.
+
+        Substitute all characters with ─.
+        """
+        separator_text = []
+        for part in self.header_text:
+            separator_text.append((part[0], "─" * len(part[1])))
+        return separator_text
+
     def create_text(self, max_available_width: int = 300) -> StyleAndTextTuples:
         """Create the formatted text from the contents of the input data.
 
@@ -372,7 +398,7 @@ class TableControl(FormattedTextControl):
             Text split in rows with the fixed width of `max_available_width`, where
             each row is formed by a list of (style, text) tuples.
         """
-        header = self._create_rows([self.header])[0]
+        header = self._create_rows(rows_data=[self.header], style="class:header")[0]
         self.rows = self._create_rows(self.data)
         all_rows = [header] + self.rows
 
@@ -380,7 +406,8 @@ class TableControl(FormattedTextControl):
         row_widths = self._divide_widths(all_rows, max_available_width)
 
         # Create the text
-        self.header_text = self._pad_text([header], row_widths)
+        self.header_text = self._create_header_text(header, row_widths)
+        self.separator_text = self._create_separator()
         return self._pad_text(self.rows, row_widths)
 
     def create_content(self, width: int, height: Optional[int] = None) -> "UIContent":
