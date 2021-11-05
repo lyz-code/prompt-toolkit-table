@@ -114,7 +114,7 @@ class _Row:
             row_elements.append([self.separator])
         # Remove the last separator, and add the right margin
         row_elements.pop(-1)
-        row_elements.append([" "])
+        row_elements.append([" " * column_widths[-1]])
 
         # Make sure that all row elements have the same number of lines
         max_height = max(len(element_lines) for element_lines in row_elements)
@@ -214,6 +214,8 @@ class Header(_Row):
         separator_text = []
         for part in header_text:
             separator_text.append((part[0], "─" * len(part[1])))
+        # remove the last \n substitution
+        separator_text.pop(-1)
         return header_text + separator_text
 
 

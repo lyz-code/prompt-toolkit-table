@@ -36,11 +36,9 @@ class Table:
         self.show_scrollbar = show_scrollbar
         self.container_style = container_style
         self._initial_header_draw = False
-        self._initial_separator_draw = False
 
         # Control and window.
         self.control = TableControl(data, key_bindings=key_bindings, focusable=True)
-        self.control.create_content()
 
         self.window = HSplit(
             [
@@ -70,7 +68,9 @@ class Table:
         match the content
         """
         if not self._initial_header_draw:
-            initial_width = get_app().output.get_size().columns
+            # I don't know why, but if we don't subtract 1 the first time you move
+            # down, the table gets recalculated
+            initial_width = get_app().output.get_size().columns - 1
             self.control.create_content(initial_width)
             self._initial_header_draw = True
 
