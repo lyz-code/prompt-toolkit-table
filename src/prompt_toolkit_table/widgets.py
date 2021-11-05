@@ -3,7 +3,8 @@
 from typing import TYPE_CHECKING, List, Optional
 
 from prompt_toolkit.application import get_app
-from prompt_toolkit.filters import Condition
+from prompt_toolkit.filters.utils import to_filter
+from prompt_toolkit.layout import ConditionalContainer
 from prompt_toolkit.layout.containers import HSplit, Window
 from prompt_toolkit.layout.margins import ConditionalMargin, ScrollbarMargin
 from prompt_toolkit.widgets import Label
@@ -19,20 +20,21 @@ if TYPE_CHECKING:
 class Table:
     """Define the widget to show the data rows."""
 
-    container_style: str = ""
-    default_style: str = ""
-    selected_style: str = ""
-    show_scrollbar: bool = True
-    show_header: bool = True
-
     def __init__(
         self,
         data: "TableData",
         header: Optional[List[str]] = None,
         key_bindings: Optional["KeyBindingsBase"] = None,
+        show_header: bool = True,
+        show_scrollbar: bool = True,
+        container_style: str = "",
     ) -> None:
         """Initialize the table buffer."""
         self.header = header
+        self.key_bindings = key_bindings
+        self.show_header = show_header
+        self.show_scrollbar = show_scrollbar
+        self.container_style = container_style
         self._initial_header_draw = False
         self._initial_separator_draw = False
 
@@ -42,15 +44,19 @@ class Table:
 
         self.window = HSplit(
             [
-                Label(self._update_header),
-                Label(self._update_separator),
+                ConditionalContainer(
+                    Label(self._update_header), filter=to_filter(self.show_header)
+                ),
+                ConditionalContainer(
+                    Label(self._update_separator), filter=to_filter(self.show_header)
+                ),
                 Window(
                     content=self.control,
                     style=self.container_style,
                     right_margins=[
                         ConditionalMargin(
                             margin=ScrollbarMargin(display_arrows=False),
-                            filter=Condition(lambda: self.show_scrollbar),
+                            filter=to_filter(self.show_scrollbar),
                         ),
                     ],
                     dont_extend_height=True,

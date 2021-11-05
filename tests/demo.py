@@ -28,7 +28,7 @@ def create_user_data() -> List[User]:
 
     return [
         User(id_=faker.pyint(), name=faker.paragraph(), bio=faker.name())
-        for _ in range(0, 20)
+        for _ in range(0, 200)
     ]
 
 
@@ -36,7 +36,7 @@ def main() -> None:
     """Run the demo."""
     data = create_user_data()
 
-    table = Table(data)
+    table = Table(data, show_scrollbar=False)
 
     # Key bindings
 

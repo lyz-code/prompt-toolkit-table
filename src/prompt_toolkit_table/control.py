@@ -238,7 +238,7 @@ class TableControl(FormattedTextControl):
             rows.append(row)
         return rows
 
-    def _divide_widths(self, rows: List[StyleAndTextTuples], width: int) -> List[int]:
+    def _divide_widths(self, width: int) -> List[int]:
         """Return the widths for all columns based on their content.
 
         Inspired by VSplit._divide_widths.
@@ -246,6 +246,7 @@ class TableControl(FormattedTextControl):
         Raises:
             ValueError: if there is not enough space
         """
+        rows: List[StyleAndTextTuples] = [self.header_row] + self.rows
         row_widths = [self._get_row_dimensions(row) for row in rows]
 
         # Transpose it so we have a list of column dimensions, so we can get the max
@@ -363,11 +364,9 @@ class TableControl(FormattedTextControl):
             padded_text += self._wrap_row(rows[row_index], row_widths)
         return padded_text
 
-    def _create_header_text(
-        self, header: StyleAndTextTuples, row_widths: List[int]
-    ) -> StyleAndTextTuples:
+    def _create_header_text(self, row_widths: List[int]) -> StyleAndTextTuples:
         """Create the header text from the header."""
-        header_text = self._pad_text([header], row_widths)
+        header_text = self._pad_text([self.header_row], row_widths)
         # Remove the last \n
         header_text.pop(-1)
 
@@ -398,15 +397,16 @@ class TableControl(FormattedTextControl):
             Text split in rows with the fixed width of `max_available_width`, where
             each row is formed by a list of (style, text) tuples.
         """
-        header = self._create_rows(rows_data=[self.header], style="class:header")[0]
+        self.header_row = self._create_rows(
+            rows_data=[self.header], style="class:header"
+        )[0]
         self.rows = self._create_rows(self.data)
-        all_rows = [header] + self.rows
 
         # Adjust column widths to fit the max_available_width
-        row_widths = self._divide_widths(all_rows, max_available_width)
+        row_widths = self._divide_widths(max_available_width)
 
         # Create the text
-        self.header_text = self._create_header_text(header, row_widths)
+        self.header_text = self._create_header_text(row_widths)
         self.separator_text = self._create_separator()
         return self._pad_text(self.rows, row_widths)
 
