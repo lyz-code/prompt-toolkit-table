@@ -291,22 +291,6 @@ class Row(_Row):
                 if key.title() in columns
             ]
 
-    def __lt__(self, other: "Row") -> bool:
-        """Assert if an object is smaller than us.
-
-        Args:
-            other: Row to compare.
-        """
-        return self.id_ < other.id_
-
-    def __gt__(self, other: "Row") -> bool:
-        """Assert if an object is greater than us.
-
-        Args:
-            other: Row to compare.
-        """
-        return self.id_ > other.id_
-
     def __hash__(self) -> int:
         """Create an unique hash of the class object."""
         return hash(self.id_)

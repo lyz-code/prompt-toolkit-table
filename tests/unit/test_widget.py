@@ -56,7 +56,8 @@ class TestTable:
     def test_table_doesnt_show_header_if_false(
         self, pydantic_data: PydanticData
     ) -> None:
-        """Given: A well configured table
+        """
+        Given: A well configured table
         When: Initialized with show_header == False
         Then: the header is not shown
         """
@@ -67,3 +68,13 @@ class TestTable:
         # ignore: "Container" has no attribute "filter", but it's a conditional
         # container
         assert not header.filter()  # type: ignore
+
+    def test_widget_has_the_pt_container_set(self, pydantic_data: PydanticData) -> None:
+        """
+        Given: A well configured table
+        When: the __pt_container__ is called
+        Then: the window is returned
+        """
+        result = Table(pydantic_data, show_header=False)
+
+        assert result.__pt_container__() == result.window

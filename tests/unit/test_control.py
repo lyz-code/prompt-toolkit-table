@@ -124,13 +124,7 @@ class TestTableControl:
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
-                # There is padding between content cells
-                if line.index(cell) == len(line) - 1:
-                    assert cell[0] == f"{line[0][0]},right_margin"
-                elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]}"
-                else:
-                    assert cell[0] == line[0][0]
+                assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
                 assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
@@ -164,13 +158,7 @@ class TestTableControl:
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
-                # There is padding between content cells
-                if line.index(cell) == len(line) - 1:
-                    assert cell[0] == f"{line[0][0]},right_margin"
-                elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]}"
-                else:
-                    assert cell[0] == line[0][0]
+                assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
                 assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
@@ -205,13 +193,7 @@ class TestTableControl:
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
-                # There is padding between content cells
-                if line.index(cell) == len(line) - 1:
-                    assert cell[0] == f"{line[0][0]},right_margin"
-                elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]}"
-                else:
-                    assert cell[0] == line[0][0]
+                assert cell[0] == line[0][0]
             # The rows have alternate styles
             if lines.index(line) == 0:
                 assert line[0][0] == "class:row.alternate,focused,[SetCursorPosition]"
