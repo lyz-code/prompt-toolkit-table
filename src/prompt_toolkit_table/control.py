@@ -1,21 +1,20 @@
 """Define the TableControl."""
 
+from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple
 
 from prompt_toolkit.filters import FilterOrBool
-from prompt_toolkit.formatted_text import to_formatted_text
-from prompt_toolkit.formatted_text.utils import fragment_list_to_text
 from prompt_toolkit.key_binding import KeyBindings, KeyBindingsBase, merge_key_bindings
+from prompt_toolkit.key_binding.key_bindings import _MergedKeyBindings
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.layout import FormattedTextControl
-from prompt_toolkit.layout.dimension import (
-    Dimension,
-    max_layout_dimensions,
-    sum_layout_dimensions,
-)
+from prompt_toolkit.layout.dimension import max_layout_dimensions, sum_layout_dimensions
 from prompt_toolkit.utils import take_using_weights
-from pydantic import BaseModel  # noqa: E0611
+
+from prompt_toolkit_table.model import Header
+
+from .model import Row
 
 if TYPE_CHECKING:
     from prompt_toolkit.data_structures import Point
@@ -25,7 +24,6 @@ TableData = List[Any]
 GetCursorPosition = Callable[[], Optional["Point"]]
 CellSize = Tuple[int, int]
 RowSize = List[CellSize]
-StyleAndTextTuples = List[Tuple[str, str]]
 
 
 class TableControl(FormattedTextControl):
@@ -33,11 +31,10 @@ class TableControl(FormattedTextControl):
 
     def __init__(
         self,
-        data: TableData,
-        header: Optional[List[str]] = None,
+        table_data: TableData,
+        columns: Optional[List[str]] = None,
         padding: int = 1,
-        padding_char: str = " ",
-        padding_style: str = "padding",
+        separator: str = " ",
         style: str = "",
         focusable: FilterOrBool = True,
         key_bindings: Optional[KeyBindingsBase] = None,
@@ -46,18 +43,63 @@ class TableControl(FormattedTextControl):
         get_cursor_position: Optional[GetCursorPosition] = None,
     ) -> None:
         """Prepare the control to manage the content."""
-        if len(data) == 0:
+        if len(table_data) == 0:
             raise ValueError("Please introduce some data to print.")
 
-        self.data = data
-        self.header: List[str] = self._guess_header(header)
-        self.padding = padding
-        self.padding_char = padding_char
-        self.padding_style = padding_style
+        self.data = table_data
+        self.header = Header(
+            table_data=table_data, columns=columns, padding=padding, separator=separator
+        )
+        self.rows = self._create_rows(
+            table_data, self.header.columns, padding, separator
+        )
         self._focused_row = 0
-        self.separator_text = []
 
         # Key bindings.
+        control_bindings = self.create_bindings(key_bindings)
+
+        # Prepare the parent FormattedTextControl data.
+        super().__init__(
+            text=self.create_content,
+            style=style,
+            focusable=focusable,
+            key_bindings=control_bindings,
+            show_cursor=False,
+            modal=modal,
+            get_cursor_position=get_cursor_position,
+        )
+
+    @staticmethod
+    def _create_rows(
+        rows_data: TableData, columns: List[str], padding: int, separator: str
+    ) -> List[Row]:
+        """Create rows with style and spaces between elements."""
+        rows: List[Row] = []
+        for row_index in range(len(rows_data)):
+            # Set base style of the rows
+            if row_index % 2 == 0:
+                style = "class:row.alternate"
+            else:
+                style = "class:row"
+
+            # Set the focus in the first row
+            row = Row(
+                id_=row_index,
+                row_data=rows_data[row_index],
+                columns=columns,
+                style=style,
+                padding=padding,
+                separator=separator,
+            )
+            if row_index == 0:
+                row.focus()
+            rows.append(row)
+        return rows
+
+    def create_bindings(
+        self, key_bindings: Optional[KeyBindingsBase]
+    ) -> _MergedKeyBindings:
+        """Configure the control bindings."""
         if key_bindings is None:
             key_bindings = KeyBindings()
         control_bindings = KeyBindings()
@@ -66,38 +108,36 @@ class TableControl(FormattedTextControl):
         @control_bindings.add("up")
         def _up(event: KeyPressEvent) -> None:
             """Move the focus one row up."""
-            self._focused_row = max(0, self._focused_row - 1)
+            self.focus_row(max(0, self._focused_row - 1))
 
         @control_bindings.add("down")
         @control_bindings.add("j")
         def _down(event: KeyPressEvent) -> None:
             """Move the focus one row down."""
-            self._focused_row = min(len(self.data) - 1, self._focused_row + 1)
+            self.focus_row(min(len(self.data) - 1, self._focused_row + 1))
 
         @control_bindings.add("c-u")
         @control_bindings.add("pageup")
         def _pageup(event: KeyPressEvent) -> None:
             """Move the focus ten rows up."""
-            self._focused_row = max(0, self._focused_row - 10)
+            self.focus_row(max(0, self._focused_row - 10))
 
         @control_bindings.add("c-d")
         @control_bindings.add("pagedown")
         def _pagedown(event: KeyPressEvent) -> None:
             """Move the focus ten rows down."""
-            self._focused_row = min(
-                len(self.data) - 1,
-                self._focused_row + 10,
-            )
+            self.focus_row(min(len(self.data) - 1, self._focused_row + 10))
 
         @control_bindings.add("g", "g")
         def _top(event: KeyPressEvent) -> None:
             """Move the focus to the top."""
             self._focused_row = 0
+            self.focus_row(0)
 
         @control_bindings.add("G")
         def _bottom(event: KeyPressEvent) -> None:
             """Move the focus to the bottom."""
-            self._focused_row = len(self.data) - 1
+            self.focus_row(len(self.data) - 1)
 
         @control_bindings.add("f", Keys.Any)
         def _find_rows(event: KeyPressEvent) -> None:
@@ -105,12 +145,10 @@ class TableControl(FormattedTextControl):
 
             We first check values after the selected value, then all values.
             """
-            values = [row[0] for row in self.rows]
+            values = [row.cells[0] for row in self.rows]
             # E203: white space introduced by black
             for value in values[self._focused_row + 1 :] + values:  # noqa: E203
-                text = fragment_list_to_text(to_formatted_text(value[1])).lower()
-
-                if text.startswith(event.data.lower()):
+                if value.lower().startswith(event.data.lower()):
                     self._focused_row = values.index(value)
                     return
 
@@ -120,134 +158,49 @@ class TableControl(FormattedTextControl):
 
             We first check values before the selected value, then all values.
             """
-            values = [row[0] for row in self.rows]
+            values = [row.cells[0] for row in self.rows]
             # E203: white space introduced by black
             for value in values[: self._focused_row - 1][::-1] + values:  # noqa: E203
-                text = fragment_list_to_text(to_formatted_text(value[1])).lower()
-
-                if text.startswith(event.data.lower()):
+                if value.lower().startswith(event.data.lower()):
                     self._focused_row = values.index(value)
                     return
 
-        key_bindings = merge_key_bindings([key_bindings, control_bindings])
+        return merge_key_bindings([key_bindings, control_bindings])
 
-        # Prepare the parent FormattedTextControl data.
-        super().__init__(
-            text=self.create_text,
-            style=style,
-            focusable=focusable,
-            key_bindings=key_bindings,
-            show_cursor=False,
-            modal=modal,
-            get_cursor_position=get_cursor_position,
-        )
+    def create_content(
+        self, width: int = 300, height: Optional[int] = None
+    ) -> "UIContent":
+        """Transform the data into the UIContent object.
 
-    def _guess_header(self, header: Optional[List[str]]) -> List[str]:
-        """Guess the header from the input data."""
-        if header is not None:
-            return header
-
-        if isinstance(self.data[0], list):  # If is a list of lists
-            raise ValueError("You need to specify a header for the table.")
-        elif isinstance(self.data[0], dict):  # If is a list of dictionaries
-            return [key.title() for key in self.data[0].keys()]
-        elif isinstance(self.data[0], BaseModel):  # If is a list of pydantic objects
-            return [
-                property_["title"]
-                for _, property_ in self.data[0].schema()["properties"].items()
-            ]
-        raise ValueError(
-            "Data format not supported, please enter a list of list of strings,"
-            " a list of dictionaries or a list of pydantic objects."
-        )
-
-    def _get_row_dimensions(self, row: StyleAndTextTuples) -> List[Dimension]:
-        """Calculate the preferred dimensions of a row.
-
-        Also set the dimensions of the pads to not grow by setting it's width to 0.
+        Args:
+            width: terminal width
+            height: terminal height
         """
-        dimensions: List[Dimension] = []
-        for column in row:
-            if "padding" in column[0]:
-                dimension = Dimension(
-                    min=self.padding, max=self.padding, preferred=self.padding, weight=0
-                )
-            elif "right_margin" in column[0]:
-                dimension = Dimension(min=1, preferred=1, weight=0)
-            else:
-                # We need to add 2 characters for each column for the space before
-                # and after the text
-                max_sentence_size = max(
-                    [len(sentence) for sentence in column[1].splitlines()]
-                )
-                dimension = Dimension(min=3, preferred=max_sentence_size + 2)
+        # Adjust column widths to fit the terminal width
+        row_widths = self._divide_widths(width)
 
-            dimensions.append(dimension)
-        return dimensions
+        # Create the text
+        self.header_text = self.header.create_text(row_widths)
 
-    def _create_rows(
-        self, rows_data: TableData, style: str = ""
-    ) -> List[StyleAndTextTuples]:
-        """Create rows with style and spaces between elements."""
-        rows: List[StyleAndTextTuples] = []
-        for row_data in rows_data:
-            # Set base style of the rows
-            if "header" not in style:
-                if len(rows) % 2 == 0:
-                    style = "class:row.alternate"
-                else:
-                    style = "class:row"
+        self.text = []
+        for row in self.rows:
+            self.text += row.create_text(row_widths)
+        return super().create_content(width, height)
 
-            # Set the style on the focused element
-            if rows_data.index(row_data) == self._focused_row and "header" not in style:
-                style += ",focused,[SetCursorPosition]"
-            # Create the row elements with style and adding spaces around each element
-            if isinstance(row_data, list):
-                elements = [(style, str(element)) for element in row_data]
-            elif isinstance(row_data, BaseModel):
-                elements = [
-                    (style, str(getattr(row_data, key)))
-                    for key, value in row_data.schema()["properties"].items()
-                    if value["title"] in self.header
-                ]
-            elif isinstance(row_data, dict):
-                elements = [
-                    (style, row_data[key])
-                    for key, value in row_data.items()
-                    if key.title() in self.header
-                ]
-
-            if len(elements) != len(self.header):
-                raise ValueError(
-                    "Row {row_data} length is different from the header {self.header}"
-                )
-
-            # Add the pads between elements
-            row: StyleAndTextTuples = []
-            if self.padding > 0:
-                padding_style = f"{style},{self.padding_style}"
-                for element in elements:
-                    row.append(element)
-                    row.append((padding_style, self.padding_char))
-                row.pop(-1)
-
-            # Add right margin.
-            # We need it to be at least 1 character for the possible scrollbar
-            row.append((f"{style},right_margin", " "))
-
-            rows.append(row)
-        return rows
-
-    def _divide_widths(self, width: int) -> List[int]:
+    @lru_cache()
+    def _divide_widths(self, width: int) -> Tuple[int, ...]:
         """Return the widths for all columns based on their content.
 
         Inspired by VSplit._divide_widths.
 
+        We need the return value to be a tuple because we need to hash it later for the
+        lru_cache.
+
         Raises:
             ValueError: if there is not enough space
         """
-        rows: List[StyleAndTextTuples] = [self.header_row] + self.rows
-        row_widths = [self._get_row_dimensions(row) for row in rows]
+        row_widths = [row.widths for row in self.rows]
+        row_widths.append(self.header.widths)
 
         # Transpose it so we have a list of column dimensions, so we can get the max
         # dimensions per column.
@@ -285,138 +238,10 @@ class TableControl(FormattedTextControl):
         # Set the right margin to use all the available space.
         sizes[-1] = max(sizes[-1], width - sum(sizes[:-1]))
 
-        return sizes
+        return tuple(sizes)
 
-    def _wrap_row(
-        self, row: StyleAndTextTuples, column_widths: List[int]
-    ) -> StyleAndTextTuples:
-        """Wrap the contents of a row to match the width.
-
-        Taking into account that as we have one space before and another after the
-        content, each row that we add, adds two extra spaces to the content.
-        """
-        columns: List[StyleAndTextTuples] = []
-        # Wrap the text of each column
-        for column_index in range(len(row)):
-            style = row[column_index][0]
-            if "padding" in style:
-                columns.append([row[column_index]])
-                continue
-            elif "right_margin" in style:
-                columns.append([(style, " " * column_widths[column_index])])
-                continue
-            width = column_widths[column_index]
-            text = row[column_index][1]
-            text_index = 0
-            column_lines = []
-            min_width = max(text_index + width - 2, 1)
-            while text_index <= len(text) - 1:
-                new_index = text_index + min_width
-                selected_text = text[text_index:new_index]
-                # Deal with the new lines inside the cells
-                if "\n" in selected_text:
-                    break_index = selected_text.index("\n")
-                    if break_index == 0:
-                        # Deal with double \n\n
-                        if selected_text[1] == "\n":
-                            column_lines.append((style, " ".ljust(width)))
-                            text_index += 1
-                        text_index += 1
-                        continue
-                    else:
-                        selected_text = selected_text[:break_index]
-                        new_index = text_index + break_index
-                column_lines.append((style, f" {selected_text.strip()} ".ljust(width)))
-                text_index = new_index
-            columns.append(column_lines)
-
-        # Make sure that all columns have the same number of lines
-        max_height = max(len(column_lines) for column_lines in columns)
-        for column_index in range(len(columns)):
-            column_lines = columns[column_index]
-            width = column_widths[column_index]
-            missing_lines = max_height - len(column_lines)
-            if missing_lines != 0:
-                column_lines += [
-                    (column_lines[0][0], " " * width) for _ in range(missing_lines)
-                ]
-
-        # Merge row contents
-        new_row = []
-        for line in range(max_height):
-            for column_lines in columns:
-                new_row.append(column_lines[line])
-            new_row.append(("", "\n"))
-
-        return new_row
-
-    def _pad_text(
-        self, rows: List[StyleAndTextTuples], row_widths: List[int]
-    ) -> StyleAndTextTuples:
-        """Pad the text to adjust the desired size.
-
-        Returns:
-            header: padded header
-            rows: padded rows.
-        """
-        padded_text: StyleAndTextTuples = []
-        for row_index in range(len(rows)):
-            padded_text += self._wrap_row(rows[row_index], row_widths)
-        return padded_text
-
-    def _create_header_text(self, row_widths: List[int]) -> StyleAndTextTuples:
-        """Create the header text from the header."""
-        header_text = self._pad_text([self.header_row], row_widths)
-        # Remove the last \n
-        header_text.pop(-1)
-
-        # Extend the style over the scrollbar (that we don't have in the header)
-        # Otherwise you get a black pixel
-        last = header_text[-1]
-        header_text[-1] = (last[0], last[1] + " ")
-
-        return header_text
-
-    def _create_separator(self) -> StyleAndTextTuples:
-        """Create the separator text from the header.
-
-        Substitute all characters with ─.
-        """
-        separator_text = []
-        for part in self.header_text:
-            separator_text.append((part[0], "─" * len(part[1])))
-        return separator_text
-
-    def create_text(self, max_available_width: int = 300) -> StyleAndTextTuples:
-        """Create the formatted text from the contents of the input data.
-
-        Args:
-            max_available_width: width to calculate the space for each column.
-
-        Returns:
-            Text split in rows with the fixed width of `max_available_width`, where
-            each row is formed by a list of (style, text) tuples.
-        """
-        self.header_row = self._create_rows(
-            rows_data=[self.header], style="class:header"
-        )[0]
-        self.rows = self._create_rows(self.data)
-
-        # Adjust column widths to fit the max_available_width
-        row_widths = self._divide_widths(max_available_width)
-
-        # Create the text
-        self.header_text = self._create_header_text(row_widths)
-        self.separator_text = self._create_separator()
-        return self._pad_text(self.rows, row_widths)
-
-    def create_content(self, width: int, height: Optional[int] = None) -> "UIContent":
-        """Transform the data into the UIContent object."""
-        # Get fragments
-        # ignore: Argument 1 to "append" of "list" has
-        # incompatible type "List[Tuple[str, str]]";
-        # expected "List[Union[Tuple[str, str],
-        # Tuple[str, str, Callable[[MouseEvent], None]]]]"
-        # But that type is in the allowed ones :S
-        self.text = self.create_text(width)  # type: ignore
-        return super().create_content(width, height)
+    def focus_row(self, index: int) -> None:
+        """Set the focus at the row in that index."""
+        self.rows[self._focused_row].unfocus()
+        self._focused_row = index
+        self.rows[self._focused_row].focus()

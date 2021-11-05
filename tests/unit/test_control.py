@@ -20,13 +20,14 @@ from prompt_toolkit_table import TableControl
 from ..conftest import DictData, ListData, PydanticData
 
 if TYPE_CHECKING:
-    from prompt_toolkit_table.control import StyleAndTextTuples
+    from prompt_toolkit_table.model import StyleAndTextTuples
 
 
 def get_lines(text: "StyleAndTextTuples") -> List["StyleAndTextTuples"]:
     """Transform the result text into a list of rows."""
     rows: List["StyleAndTextTuples"] = []
     row: "StyleAndTextTuples" = []
+
     for part in text:
         if re.match(r"\n$", part[1]):
             rows.append(row)
@@ -61,7 +62,7 @@ class TestTableControl:
         """
         result = TableControl(pydantic_data)
 
-        assert result.header == ["ID", "Name", "Bio"]
+        assert result.header.columns == ["ID", "Name", "Bio"]
 
     def test_table_accepts_list_of_strings_with_header(
         self, list_data: ListData
@@ -73,9 +74,9 @@ class TestTableControl:
         """
         data, header = list_data
 
-        result = TableControl(data, header=header)
+        result = TableControl(data, columns=header)
 
-        assert result.header == header
+        assert result.header.columns == header
 
     def test_table_fails_if_list_of_strings_and_no_header(
         self, list_data: ListData
@@ -102,7 +103,7 @@ class TestTableControl:
         """
         result = TableControl(dict_data)
 
-        assert result.header == [key.title() for key in dict_data[0].keys()]
+        assert result.header.columns == [key.title() for key in dict_data[0].keys()]
 
     def test_table_creates_text_with_list_of_dicts(self, dict_data: DictData) -> None:
         """
@@ -117,9 +118,9 @@ class TestTableControl:
         """
         control = TableControl(dict_data)
 
-        result = control.create_text()
+        control.create_content()  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
@@ -127,7 +128,7 @@ class TestTableControl:
                 if line.index(cell) == len(line) - 1:
                     assert cell[0] == f"{line[0][0]},right_margin"
                 elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]},padding"
+                    assert cell[0] == f"{line[0][0]}"
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
@@ -155,11 +156,11 @@ class TestTableControl:
             * The first line is highlighted, and the cursor focus is set
         """
         data, header = list_data
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text()
+        control.create_content()  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
@@ -167,7 +168,7 @@ class TestTableControl:
                 if line.index(cell) == len(line) - 1:
                     assert cell[0] == f"{line[0][0]},right_margin"
                 elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]},padding"
+                    assert cell[0] == f"{line[0][0]}"
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
@@ -198,9 +199,9 @@ class TestTableControl:
         """
         control = TableControl(pydantic_data)
 
-        result = control.create_text()
+        control.create_content()  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         for line in lines:
             # All cells of a row share the same base style
             for cell in line:
@@ -208,7 +209,7 @@ class TestTableControl:
                 if line.index(cell) == len(line) - 1:
                     assert cell[0] == f"{line[0][0]},right_margin"
                 elif line.index(cell) % 2 != 0:
-                    assert cell[0] == f"{line[0][0]},padding"
+                    assert cell[0] == f"{line[0][0]}"
                 else:
                     assert cell[0] == line[0][0]
             # The rows have alternate styles
@@ -245,17 +246,16 @@ class TestTableControl:
     ) -> None:
         """
         Given: A wrong configured table, where the header is smaller than the elements
-        When: create_text is initialized
+        When: create_content is initialized
         Then: a ValueError exception is raised
         """
         data, header = list_data
-        table = TableControl(data, header=header)
-        table.header.pop(0)
+        data[0].pop(0)
 
         with pytest.raises(
-            ValueError, match="Row.*length is different from the header.*"
+            ValueError, match="Row.*length is different from the columns.*"
         ):
-            table.create_text()
+            TableControl(data, columns=header)
 
     def test_raise_error_if_no_data_is_entered(self) -> None:
         """
@@ -264,18 +264,19 @@ class TestTableControl:
         Then: a ValueError exception is raised
         """
         with pytest.raises(ValueError, match="Please introduce some data to print."):
-            TableControl(data=[])
+            TableControl(table_data=[])
 
-    def test_raise_error_if_data_is_not_supported(self) -> None:
+    def test_raise_error_if_wrong_data(self) -> None:
         """
         Given: A non supported data
         When: the component is initialized
         Then: a ValueError exception is raised
         """
         with pytest.raises(
-            ValueError, match="Data format not supported, please enter a list of .*"
+            ValueError,
+            match="Table data format not supported, please enter a list of .*",
         ):
-            TableControl(data=[1])
+            TableControl(table_data=[1])
 
 
 class TestWrapping:
@@ -284,17 +285,17 @@ class TestWrapping:
     def test_wrapping_long_column_in_the_middle(self, faker: Faker) -> None:
         """
         Given: A row with a long column in the middle
-        When: create_text is called with a width that needs wrapping
+        When: create_content is called with a width that needs wrapping
         Then: The text is well wrapped, that means that all the cells of a column have
             the same size.
         """
         data = [["cell", faker.sentence(), "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text(max_available_width=30)
+        control.create_content(width=30)  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         columns = get_columns(lines)
         for column in columns:
             for cell in column:
@@ -304,7 +305,7 @@ class TestWrapping:
         r"""
         Given: A row with a text with \n in a column in the middle, and the \n falls
             where the wrapping would split the lines
-        When: create_text is called with a width that doesn't need wrapping
+        When: create_content is called with a width that doesn't need wrapping
         Then: The text is well formatted, that means that:
             * The content should only have two lines.
             * The text should not contain the \n, instead, the wrapping should be done
@@ -312,20 +313,20 @@ class TestWrapping:
         """
         data = [["cell", "hello\nworld", "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text(max_available_width=40)
+        control.create_content(width=40)  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         assert len(lines) == 2
-        assert result[2][1] == " hello "
-        assert result[9][1] == " world "
+        assert lines[0][2][1] == " hello "
+        assert lines[1][2][1] == " world "
 
     def test_wrapping_with_paragraph_that_doesnt_match_the_wrap(self) -> None:
         r"""
         Given: A row with a text with \n in a column in the middle, and the \n doesn't
             falls where the wrapping would split the lines.
-        When: create_text is called with a width that doesn't need wrapping
+        When: create_content is called with a width that doesn't need wrapping
         Then: The text is well formatted, that means that:
             * The content should only have two lines.
             * The text should not contain the \n, instead, the wrapping should be done
@@ -333,63 +334,64 @@ class TestWrapping:
         """
         data = [["cell", "hello\nbeautiful world", "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text(max_available_width=60)
+        control.create_content(width=60)  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         assert len(lines) == 2
-        assert result[2][1] == " hello           "
-        assert result[9][1] == " beautiful world "
+        assert lines[0][2][1] == " hello           "
+        assert lines[1][2][1] == " beautiful world "
 
     def test_wrapping_with_two_short_paragraphs(self, faker: Faker) -> None:
         r"""
         Given: A row with a text with two \n in a column in the middle
-        When: create_text is called with a width that doesn't need wrapping
+        When: create_content is called with a width that doesn't need wrapping
         Then: There are no \n in the text of the cells.
         """
         data = [["cell", "\n".join(faker.paragraphs()), "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text(max_available_width=60000)
+        control.create_content(width=60000)  # act
 
-        assert "\n" not in result[2][1]
-        assert "\n" not in result[9][1]
-        assert "\n" not in result[16][1]
+        lines = get_lines(control.text)  # type: ignore
+        assert "\n" not in lines[0][2][1]
+        assert "\n" not in lines[1][2][1]
+        assert "\n" not in lines[2][2][1]
 
     def test_wrapping_with_two_newlines(self) -> None:
         r"""
         Given: A row with a text with two consecutive \n in a column in the middle
-        When: create_text is called with a width that doesn't need wrapping
+        When: create_content is called with a width that doesn't need wrapping
         Then: There are no \n in the text of the cells, but an empty line is created
         """
         data = [["cell", "hello\n\nbeautiful world", "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
-        result = control.create_text(max_available_width=60000)
+        control.create_content(width=60000)  # act
 
-        lines = get_lines(result)
+        lines = get_lines(control.text)  # type: ignore
         assert len(lines) == 3
-        assert result[2][1] == " hello           "
-        assert result[9][1] == "                 "
-        assert result[16][1] == " beautiful world "
+        assert lines[0][2][1] == " hello           "
+        assert lines[1][2][1] == "                 "
+        assert lines[2][2][1] == " beautiful world "
 
     def test_wrapping_returns_error_if_there_is_not_enough_space(self) -> None:
         r"""
         Given: A data with a minimum size that is greater than the available width
-        When: create_text is called
+        When: create_content is called
         Then: A ValueError is returned
         """
         data = [["cell", "hello\n\nbeautiful world", "cell"]]
         header = ["head", "head", "head"]
-        control = TableControl(data=data, header=header)
+        control = TableControl(table_data=data, columns=header)
 
         with pytest.raises(
             ValueError, match="There is not enough space to print all the columns"
         ):
-            control.create_text(max_available_width=10)
+            control.create_content(width=10)
 
 
 def set_dummy_app(data: PydanticData) -> Any:
@@ -485,6 +487,9 @@ class TestMovement:
         """
         with set_dummy_app(pydantic_data):
             content, processor = get_content_and_processor()
+            # Add rows so we have 12
+            content.rows.append(content.rows[2])
+            content.rows.append(content.rows[2])
             content._focused_row = 11
 
             processor.feed(KeyPress(key, key))  # act
@@ -572,8 +577,8 @@ class TestMovement:
         with set_dummy_app(pydantic_data):
             content, processor = get_content_and_processor()
             content._focused_row = 1
-            content.data[3].id_ = "xwebhe"
-            content.create_text()
+            content.rows[3].cells[0] = "xwebhe"
+            content.create_content()
             processor.feed(KeyPress("f"))
 
             processor.feed(KeyPress("x"))  # act
@@ -594,8 +599,8 @@ class TestMovement:
         with set_dummy_app(pydantic_data):
             content, processor = get_content_and_processor()
             content._focused_row = 1
-            content.data[0].id_ = "xwebhe"
-            content.create_text()
+            content.rows[0].cells[0] = "xwebhe"
+            content.create_content()
             processor.feed(KeyPress("f"))
 
             processor.feed(KeyPress("x"))  # act
@@ -615,9 +620,9 @@ class TestMovement:
         with set_dummy_app(pydantic_data):
             content, processor = get_content_and_processor()
             content._focused_row = 3
-            content.data[1].id_ = "xwebhe"
-            content.data[4].id_ = "xebhwe"
-            content.create_text()
+            content.rows[1].cells[0] = "xwebhe"
+            content.rows[4].cells[0] = "xebhwe"
+            content.create_content()
             processor.feed(KeyPress("F"))
 
             processor.feed(KeyPress("x"))  # act
@@ -638,8 +643,8 @@ class TestMovement:
         with set_dummy_app(pydantic_data):
             content, processor = get_content_and_processor()
             content._focused_row = 1
-            content.data[3].id_ = "xwebhe"
-            content.create_text()
+            content.rows[3].cells[0] = "xwebhe"
+            content.create_content()
             processor.feed(KeyPress("F"))
 
             processor.feed(KeyPress("x"))  # act
