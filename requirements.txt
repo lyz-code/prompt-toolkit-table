@@ -4,7 +4,7 @@
 #
 #    pip-compile --allow-unsafe
 #
-prompt-toolkit==3.0.20
+prompt-toolkit==3.0.30
     # via prompt-toolkit-table (setup.py)
 wcwidth==0.2.5
     # via prompt-toolkit
