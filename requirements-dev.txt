@@ -21,20 +21,27 @@ autoflake==1.4
     # via autoimport
 autoimport==0.7.4
     # via -r requirements-dev.in
-backports.entry-points-selectable==1.1.0
+backports-entry-points-selectable==1.1.0
     # via virtualenv
 bandit==1.7.0
     # via -r requirements-dev.in
 black==21.9b0
     # via -r requirements-dev.in
+build==0.10.0
+    # via pip-tools
 certifi==2021.10.8
-    # via requests
+    # via
+    #   -c docs/requirements.txt
+    #   requests
 cfgv==3.3.1
     # via pre-commit
 charset-normalizer==2.0.7
-    # via requests
+    # via
+    #   -c docs/requirements.txt
+    #   requests
 click==8.0.3
     # via
+    #   -c docs/requirements.txt
     #   autoimport
     #   black
     #   pip-tools
@@ -122,27 +129,19 @@ flake8-variables-names==0.0.4
 flakehell==0.9.0
     # via -r requirements-dev.in
 gitdb==4.0.7
-    # via gitpython
+    # via
+    #   -c docs/requirements.txt
+    #   gitpython
 gitpython==3.1.24
-    # via bandit
+    # via
+    #   -c docs/requirements.txt
+    #   bandit
 identify==2.3.0
     # via pre-commit
 idna==3.3
-    # via requests
-importlib-metadata==4.8.1
     # via
-    #   backports.entry-points-selectable
-    #   click
-    #   flake8
-    #   flake8-comprehensions
-    #   flake8-simplify
-    #   flake8-typing-imports
-    #   pep517
-    #   pluggy
-    #   pre-commit
-    #   pytest
-    #   stevedore
-    #   virtualenv
+    #   -c docs/requirements.txt
+    #   requests
 iniconfig==1.1.1
     # via pytest
 isort==5.9.3
@@ -165,6 +164,8 @@ nodeenv==1.6.0
     # via pre-commit
 packaging==21.0
     # via
+    #   -c docs/requirements.txt
+    #   build
     #   dparse
     #   pytest
     #   safety
@@ -174,11 +175,9 @@ pathspec==0.9.0
     #   yamllint
 pbr==5.6.0
     # via stevedore
-pep517==0.12.0
-    # via pip-tools
 pep8-naming==0.12.1
     # via -r requirements-dev.in
-pip-tools==6.4.0
+pip-tools==7.3.0
     # via -r requirements-dev.in
 platformdirs==2.4.0
     # via
@@ -204,11 +203,17 @@ pyflakes==2.3.1
     #   autoflake
     #   flake8
 pygments==2.10.0
-    # via flakehell
+    # via
+    #   -c docs/requirements.txt
+    #   flakehell
 pylint==2.11.1
     # via -r requirements-dev.in
 pyparsing==2.4.7
-    # via packaging
+    # via
+    #   -c docs/requirements.txt
+    #   packaging
+pyproject-hooks==1.0.0
+    # via build
 pyprojroot==0.2.0
     # via autoimport
 pytest==6.2.5
@@ -228,6 +233,7 @@ pytest-xdist==2.4.0
     # via -r requirements-dev.in
 pyyaml==6.0
     # via
+    #   -c docs/requirements.txt
     #   bandit
     #   dparse
     #   pre-commit
@@ -235,7 +241,9 @@ pyyaml==6.0
 regex==2021.10.21
     # via black
 requests==2.26.0
-    # via safety
+    # via
+    #   -c docs/requirements.txt
+    #   safety
 ruyaml==0.20.0
     # via yamlfix
 safety==1.10.3
@@ -244,12 +252,15 @@ sh==1.14.2
     # via autoimport
 six==1.16.0
     # via
+    #   -c docs/requirements.txt
     #   asttokens
     #   bandit
     #   flake8-debugger
     #   virtualenv
 smmap==4.0.0
-    # via gitdb
+    # via
+    #   -c docs/requirements.txt
+    #   gitdb
 snowballstemmer==2.1.0
     # via pydocstyle
 stevedore==3.5.0
@@ -266,42 +277,31 @@ tomli==1.2.1
     # via
     #   black
     #   coverage
-    #   pep517
-typed-ast==1.4.3
-    # via
-    #   astroid
-    #   black
-    #   flake8-annotations
-    #   mypy
 typing-extensions==3.10.0.2
     # via
-    #   astroid
+    #   -c docs/requirements.txt
     #   black
-    #   gitpython
-    #   importlib-metadata
     #   mypy
-    #   pylint
 urllib3==1.26.7
     # via
+    #   -c docs/requirements.txt
     #   flakehell
     #   requests
 virtualenv==20.8.1
     # via pre-commit
 wheel==0.37.0
-    # via pip-tools
+    # via
+    #   -c docs/requirements.txt
+    #   pip-tools
 wrapt==1.13.2
     # via astroid
 yamlfix==0.7.2
     # via -r requirements-dev.in
 yamllint==1.26.3
     # via -r requirements-dev.in
-zipp==3.6.0
-    # via
-    #   importlib-metadata
-    #   pep517
 
 # The following packages are considered to be unsafe in a requirements file:
-pip==21.3
+pip==23.2.1
     # via pip-tools
 setuptools==58.2.0
     # via
